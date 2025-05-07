@@ -1,3 +1,4 @@
+// src/main/java/com/camstudy/backend/repository/WindowRepository.java
 package com.camstudy.backend.repository;
 
 import com.camstudy.backend.entity.Window;

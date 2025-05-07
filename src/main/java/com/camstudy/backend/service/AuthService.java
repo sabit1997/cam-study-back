@@ -36,4 +36,11 @@ public class AuthService {
 
         return jwtUtil.createToken(user.getEmail());
     }
+
+    public String logout(String token) {
+        // JWT는 만료시킬 수 없기 때문에,
+        // 블랙리스트 처리하지 않는 한 서버 쪽에서 할 수 있는 건 없음.
+        // 여기에선 클라이언트에게 토큰 삭제 요청만 안내함.
+        return "로그아웃 완료 — 토큰을 클라이언트에서 삭제해주세요.";
+    }
 }

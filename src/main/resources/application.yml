@@ -1,4 +1,7 @@
 spring:
+  security:
+    debug: true
+
   datasource:
     url: jdbc:mysql://mysql:3306/camstudy
     username: camuser
@@ -16,3 +19,7 @@ spring:
 server:
   address: 0.0.0.0
   port: 8080
+
+logging:
+  level:
+    org.springframework.security: TRACE
