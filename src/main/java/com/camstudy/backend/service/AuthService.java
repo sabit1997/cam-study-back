@@ -5,9 +5,12 @@ import com.camstudy.backend.repository.UserRepository;
 import com.camstudy.backend.util.JwtUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.http.ResponseCookie;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Service
 public class AuthService {
+
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
@@ -17,16 +20,7 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
     }
 
-    public String signup(String email, String password) {
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new RuntimeException("이미 존재하는 이메일입니다.");
-        }
-        String hash = encoder.encode(password);
-        userRepository.save(User.builder().email(email).password(hash).build());
-        return "회원가입 완료";
-    }
-
-    public String login(String email, String password) {
+    public String login(String email, String password, HttpServletResponse response) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 사용자"));
 
@@ -34,13 +28,92 @@ public class AuthService {
             throw new RuntimeException("비밀번호 불일치");
         }
 
-        return jwtUtil.createToken(user.getEmail());
+        // 액세스 토큰과 리프레시 토큰 생성
+        String accessToken = jwtUtil.createToken(user.getEmail());
+        String refreshToken = jwtUtil.createRefreshToken(user.getEmail());
+
+        // 액세스 토큰을 쿠키에 설정
+        ResponseCookie accessTokenCookie = ResponseCookie.from("AccessToken", accessToken)
+                .httpOnly(true)
+                .secure(true) // 프로덕션 환경에서만 true
+                .path("/")
+                .maxAge(60 * 60) // 1시간
+                .sameSite("None") // CORS를 사용할 경우 SameSite=None 설정
+                .build();
+
+        // 리프레시 토큰을 쿠키에 설정
+        ResponseCookie refreshTokenCookie = ResponseCookie.from("RefreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true) // 프로덕션 환경에서만 true
+                .path("/")
+                .maxAge(60 * 60 * 24 * 7) // 7일
+                .sameSite("None")
+                .build();
+
+        // 쿠키에 추가
+        response.addHeader("Set-Cookie", accessTokenCookie.toString());
+        response.addHeader("Set-Cookie", refreshTokenCookie.toString());
+
+        // 유저 정보 반환 (유저네임만 반환)
+        return user.getUsername(); // 유저의 이름 반환
     }
 
-    public String logout(String token) {
-        // JWT는 만료시킬 수 없기 때문에,
-        // 블랙리스트 처리하지 않는 한 서버 쪽에서 할 수 있는 건 없음.
-        // 여기에선 클라이언트에게 토큰 삭제 요청만 안내함.
-        return "로그아웃 완료 — 토큰을 클라이언트에서 삭제해주세요.";
+    public String signup(String email, String password, String username) {
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new RuntimeException("이미 존재하는 이메일입니다.");
+        }
+        String hash = encoder.encode(password);
+        userRepository.save(User.builder()
+                .email(email)
+                .password(hash)
+                .username(username)
+                .build());
+        return "회원가입 완료";
+    }
+
+    public String logout(HttpServletResponse response) {
+        // 쿠키를 삭제
+        ResponseCookie accessTokenCookie = ResponseCookie.from("AccessToken", null)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0) // 쿠키 만료
+                .build();
+
+        ResponseCookie refreshTokenCookie = ResponseCookie.from("RefreshToken", null)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0) // 쿠키 만료
+                .build();
+
+        // 쿠키 삭제
+        response.addHeader("Set-Cookie", accessTokenCookie.toString());
+        response.addHeader("Set-Cookie", refreshTokenCookie.toString());
+
+        return "로그아웃 완료";
+    }
+
+    // 리프레시 토큰을 사용하여 새로운 액세스 토큰 발급
+    public String refreshAccessToken(String refreshToken, HttpServletResponse response) {
+        String email = jwtUtil.getEmail(refreshToken); // 리프레시 토큰에서 이메일 추출
+        if (email == null) {
+            throw new RuntimeException("리프레시 토큰이 유효하지 않습니다.");
+        }
+
+        // 새로운 액세스 토큰 생성
+        String newAccessToken = jwtUtil.createToken(email);
+
+        // 새 액세스 토큰을 쿠키에 설정
+        ResponseCookie accessTokenCookie = ResponseCookie.from("AccessToken", newAccessToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(60 * 60) // 1시간
+                .sameSite("None")
+                .build();
+
+        response.addHeader("Set-Cookie", accessTokenCookie.toString());
+        return "새로운 액세스 토큰이 발급되었습니다.";
     }
 }

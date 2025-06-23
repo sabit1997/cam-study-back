@@ -1,5 +1,10 @@
 package com.camstudy.backend.service;
 
+import com.camstudy.backend.dto.TodayTimeResponse;
+import com.camstudy.backend.dto.TimerGoalResponse;
+import com.camstudy.backend.entity.User;
+import com.camstudy.backend.repository.UserRepository;
+
 import com.camstudy.backend.entity.Timer;
 import com.camstudy.backend.repository.TimerRepository;
 import org.springframework.stereotype.Service;
@@ -10,10 +15,13 @@ import java.util.*;
 
 @Service
 public class TimerService {
-    private final TimerRepository repo;
+    
+    private final TimerRepository repo; 
+    private final UserRepository userRepository;
 
-    public TimerService(TimerRepository repo) {
+    public TimerService(TimerRepository repo, UserRepository userRepository) {
         this.repo = repo;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -31,7 +39,7 @@ public class TimerService {
 
             long secs = Duration.between(sliceStart, sliceEnd).getSeconds();
 
-            LocalDate finalCurrentDate = currentDate; // 🔧 람다 안에서 사용될 변수
+            LocalDate finalCurrentDate = currentDate;
             Timer entry = repo.findByUserIdAndDate(userId, finalCurrentDate)
                     .orElseGet(() -> {
                         Timer t = new Timer();
@@ -47,25 +55,17 @@ public class TimerService {
             currentDate = sliceStart.toLocalDate();
         }
     }
-
     public List<Timer> listByMonth(String userId, int year, int month) {
         LocalDate from = LocalDate.of(year, month, 1);
         LocalDate to = from.withDayOfMonth(from.lengthOfMonth());
         return repo.findByUserIdAndDateBetween(userId, from, to);
     }
-
     public long getMonthlyTotal(String userId, int year, int month) {
-        return listByMonth(userId, year, month).stream()
-                .mapToLong(Timer::getTotalSeconds)
-                .sum();
+        return listByMonth(userId, year, month).stream().mapToLong(Timer::getTotalSeconds).sum();
     }
-
     public double getAchievementRate(String userId, LocalDate date, long dailyGoalSeconds) {
-        return repo.findByUserIdAndDate(userId, date)
-                .map(entry -> Math.min(100.0, (entry.getTotalSeconds() * 100.0) / dailyGoalSeconds))
-                .orElse(0.0);
+        return repo.findByUserIdAndDate(userId, date).map(entry -> Math.min(100.0, (entry.getTotalSeconds() * 100.0) / dailyGoalSeconds)).orElse(0.0);
     }
-
     public Map<DayOfWeek, Long> getWeeklyStats(String userId, int year, int month) {
         List<Timer> entries = listByMonth(userId, year, month);
         Map<DayOfWeek, Long> result = new EnumMap<>(DayOfWeek.class);
@@ -75,14 +75,11 @@ public class TimerService {
         }
         return result;
     }
-
     public Map<String, Object> getMonthComparison(String userId, int year, int month) {
         LocalDate currentMonthStart = LocalDate.of(year, month, 1);
         LocalDate prevMonth = currentMonthStart.minusMonths(1);
-
         long currentTotal = getMonthlyTotal(userId, year, month);
         long previousTotal = getMonthlyTotal(userId, prevMonth.getYear(), prevMonth.getMonthValue());
-
         Map<String, Object> result = new HashMap<>();
         result.put("currentMonthTotal", currentTotal);
         result.put("previousMonthTotal", previousTotal);
@@ -90,9 +87,47 @@ public class TimerService {
         result.put("changeRate", previousTotal == 0 ? null : ((currentTotal - previousTotal) * 100.0) / previousTotal);
         return result;
     }
-
     public Optional<Timer> getBestFocusDay(String userId, int year, int month) {
-        return listByMonth(userId, year, month).stream()
-                .max(Comparator.comparingLong(Timer::getTotalSeconds));
+        return listByMonth(userId, year, month).stream().max(Comparator.comparingLong(Timer::getTotalSeconds));
+    }
+
+
+    public TodayTimeResponse getTodayTime(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        Timer todayTimer = repo.findByUserIdAndDate(userEmail, today)
+                .orElseGet(() -> {
+                    Timer newTimer = new Timer();
+                    newTimer.setUserId(userEmail);
+                    newTimer.setDate(today);
+                    newTimer.setTotalSeconds(0);
+                    return newTimer;
+                });
+
+        return new TodayTimeResponse(
+                todayTimer.getId(),
+                todayTimer.getUserId(),
+                todayTimer.getDate().toString(),
+                todayTimer.getTotalSeconds(),
+                user.getDailyGoalHours()
+        );
+    }
+    
+    public TimerGoalResponse getTimerGoal(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        return new TimerGoalResponse(user.getDailyGoalHours());
+    }
+
+    @Transactional
+    public TimerGoalResponse updateTimerGoal(String userEmail, int newHour) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: ".concat(userEmail)));
+        
+        user.setDailyGoalHours(newHour);
+        
+        return new TimerGoalResponse(user.getDailyGoalHours());
     }
 }

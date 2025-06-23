@@ -1,40 +1,61 @@
-// src/main/java/com/camstudy/backend/controller/TodoController.java
 package com.camstudy.backend.controller;
 
-import com.camstudy.backend.entity.TodoItem;
+import com.camstudy.backend.dto.AddTodoRequest;
+import com.camstudy.backend.dto.UpdateDoneRequest;
+import com.camstudy.backend.dto.UpdateTodoRequest;
+import com.camstudy.backend.dto.TodoResponse;
 import com.camstudy.backend.service.TodoService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/windows/{winId}/todos")
+@RequiredArgsConstructor
 public class TodoController {
+    
     private final TodoService svc;
 
-    public TodoController(TodoService svc) {
-        this.svc = svc;
-    }
-
     @PostMapping
-    public TodoItem add(@PathVariable Long winId, @RequestBody Map<String, String> body) {
-        return svc.addTodo(winId, body.get("text"));
+    public ResponseEntity<TodoResponse> add(@PathVariable Long winId, @RequestBody AddTodoRequest req, @AuthenticationPrincipal String userEmail) {
+        return new ResponseEntity<>(TodoResponse.from(svc.addTodo(userEmail, winId, req.text())), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public List<TodoItem> list(@PathVariable Long winId) {
-        return svc.getTodos(winId);
+    public ResponseEntity<List<TodoResponse>> list(
+            @PathVariable Long winId,
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) Boolean done,
+            @RequestParam(required = false) String order,
+            @AuthenticationPrincipal String userEmail) {
+        
+        List<TodoResponse> response = svc.getTodosByWindow(userEmail, winId, date, done, order)
+                .stream()
+                .map(TodoResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/{todoId}")
-    public TodoItem toggleDone(@PathVariable Long todoId,
-                              @RequestBody Map<String, Boolean> body) {
-        return svc.updateDone(todoId, body.get("done"));
+    public ResponseEntity<TodoResponse> updateDone(@PathVariable Long winId, @PathVariable Long todoId,
+                              @RequestBody UpdateDoneRequest req, @AuthenticationPrincipal String userEmail) {
+        return ResponseEntity.ok(TodoResponse.from(svc.updateDone(userEmail, winId, todoId, req.done())));
     }
 
     @DeleteMapping("/{todoId}")
-    public void delete(@PathVariable Long todoId) {
-        svc.deleteTodo(todoId);
+    public ResponseEntity<Void> delete(@PathVariable Long winId, @PathVariable Long todoId, @AuthenticationPrincipal String userEmail) {
+        svc.deleteTodo(userEmail, winId, todoId);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @PatchMapping("/{todoId}/text")
+    public ResponseEntity<TodoResponse> updateText(@PathVariable Long winId, @PathVariable Long todoId,
+                               @RequestBody UpdateTodoRequest req, @AuthenticationPrincipal String userEmail) {
+        return ResponseEntity.ok(TodoResponse.from(svc.updateText(userEmail, winId, todoId, req.text())));
     }
 }
