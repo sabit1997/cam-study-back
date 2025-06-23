@@ -56,8 +56,15 @@ public class TimerController {
     }
 
     @PostMapping("/goal")
-    public TimerGoalResponse updateTimerGoal(@RequestBody TimerGoalRequest req, @AuthenticationPrincipal String userEmail) {
-        return timerService.updateTimerGoal(userEmail, req.hour());
+    public TimerGoalResponse updateTimerGoal(@RequestBody TimerGoalRequest req,
+        @AuthenticationPrincipal String userEmail) {
+      return timerService.updateTimerGoal(userEmail, req.hour());
+    }
+    
+    @DeleteMapping("/day/{date}") // 예: DELETE /timer/day/2025-06-23
+    public void resetDailyTimer(@PathVariable String date, @AuthenticationPrincipal String userEmail) {
+        LocalDate localDate = LocalDate.parse(date); // 경로 변수에서 날짜를 파싱합니다.
+        timerService.resetDailyTimer(userEmail, localDate);
     }
 
 

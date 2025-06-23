@@ -123,11 +123,22 @@ public class TimerService {
 
     @Transactional
     public TimerGoalResponse updateTimerGoal(String userEmail, int newHour) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: ".concat(userEmail)));
-        
-        user.setDailyGoalHours(newHour);
-        
-        return new TimerGoalResponse(user.getDailyGoalHours());
+      User user = userRepository.findByEmail(userEmail)
+          .orElseThrow(() -> new IllegalArgumentException("User not found: ".concat(userEmail)));
+
+      user.setDailyGoalHours(newHour);
+
+      return new TimerGoalResponse(user.getDailyGoalHours());
     }
+    
+    @Transactional
+    public void resetDailyTimer(String userId, LocalDate date) {
+        // 해당 날짜의 타이머 기록을 찾아 totalSeconds를 0으로 설정하고 저장합니다.
+        repo.findByUserIdAndDate(userId, date).ifPresent(timer -> {
+            timer.setTotalSeconds(0);
+            repo.save(timer);
+        });
+        // (선택 사항) 만약 0으로 설정하는 대신 해당 항목을 아예 삭제하고 싶다면 다음 줄을 사용하세요:
+        // repo.findByUserIdAndDate(userId, date).ifPresent(repo::delete);
+}
 }
