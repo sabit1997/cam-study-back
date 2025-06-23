@@ -8,15 +8,18 @@ import com.camstudy.backend.repository.WindowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Sort; // Sort 임포트
-import org.springframework.data.jpa.domain.Specification; // Specification 임포트
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
-import jakarta.persistence.criteria.Predicate; // JPA Criteria API Predicate 임포트
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Expression; // Expression 임포트 추가
+
 import java.time.LocalDate;
+import java.time.Instant; // Instant 임포트 추가
+import java.time.ZoneOffset; // ZoneOffset 임포트 추가 (UTC를 위해)
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional; // Optional 임포트
 
 @Service
 @RequiredArgsConstructor
@@ -59,13 +62,43 @@ public class TodoService {
                 predicates.add(cb.equal(root.get("done"), done));
             }
 
-            // date 필터링 (createdAt 필드가 LocalDate 타입이라고 가정)
+            // date 필터링 (createdAt이 Instant 타입임을 고려하여 수정)
             if (date != null && !date.isEmpty()) {
                 try {
                     LocalDate filterDate = LocalDate.parse(date);
-                    predicates.add(cb.equal(root.get("createdAt"), filterDate));
+                    
+                    // Instant에서 LocalDate를 추출하여 비교합니다.
+                    // UTC 기준으로 Instant를 LocalDate로 변환하여 비교하는 것이 일반적입니다.
+                    Expression<LocalDate> createdAtDate = cb.function(
+                        "DATE", // SQL DATE 함수 (데이터베이스에 따라 다를 수 있음, MySQL, H2 등)
+                        LocalDate.class,
+                        root.get("createdAt")
+                    );
+                    // 또는 Instant를 특정 ZoneOffset으로 변환 후 LocalDate를 얻는 방법
+                    // 이 방법은 데이터베이스 함수에 의존하지 않으므로 더 이식성이 높을 수 있습니다.
+                    // root.get("createdAt").as(Instant.class)를 직접 사용하기 어렵기 때문에
+                    // 일반적으로는 custom Function이나 Expression을 사용하거나, JPQL 쿼리를 직접 작성합니다.
+                    // Specification에서는 cb.function()이 가장 직접적인 방법입니다.
+                    // 데이터베이스의 DATE 함수가 Instant 타입을 지원해야 합니다.
+                    // 만약 데이터베이스 DATE 함수가 Instant를 직접 처리하지 못한다면,
+                    // JPA Criteria API의 Path<Instant>를 LocalDate로 변환하는 더 복잡한 방법이 필요합니다.
+                    // 대부분의 DB는 타임스탬프에서 날짜를 추출하는 함수를 제공합니다.
+                    // 예를 들어, PostgreSQL은 date(timestamp_column)
+                    // MySQL은 DATE(datetime_column)
+
+                    // 더 안전하고 일반적인 방법은 다음과 같이 Instant를 Long (epoch milliseconds)으로 변환 후
+                    // Java에서 LocalDate로 변환하는 로직을 사용하는 것입니다.
+                    // 하지만 Specification 내에서는 복잡하므로, SQL DATE 함수 사용을 가정합니다.
+                    
+                    // 대안: Instant를 `LocalDate`로 매핑하기 위한 SQL 함수 사용 예시 (데이터베이스 종속적)
+                    // H2, MySQL: DATE(column)
+                    // PostgreSQL: date(column)
+                    // Oracle: TRUNC(column)
+                    
+                    // 여기서는 'DATE' 함수를 사용하여 Instant에서 날짜 부분만 추출한다고 가정합니다.
+                    predicates.add(cb.equal(createdAtDate, filterDate));
+
                 } catch (DateTimeParseException e) {
-                    // 날짜 형식 오류 로깅 (필요시)
                     System.err.println("Invalid date format for filter: " + date);
                 }
             }
@@ -90,7 +123,7 @@ public class TodoService {
     public TodoItem updateDone(String userEmail, Long winId, Long todoId, boolean done) {
         TodoItem todoItem = findTodoItemForUser(userEmail, winId, todoId);
         todoItem.setDone(done);
-        return todoItem; // @Transactional에 의해 자동 저장 (Dirty Checking)
+        return todoItem;
     }
 
     @Transactional
@@ -106,15 +139,10 @@ public class TodoService {
         return todoItem;
     }
 
-    // --- Global API를 위한 서비스 메서드들 (이 부분은 수정 요청이 없었으므로 원본 유지) ---
-
     public List<TodoItem> getAllTodosByUser(String userEmail, String date, Boolean done, String order) {
-        // TODO: query 파라미터를 사용한 동적 쿼리 구현
-        // 이 부분도 Specification을 사용하여 구현해야 합니다.
-        // 현재는 window_id와 관계없이 userEmail만으로 조회
         Specification<TodoItem> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("window").get("userId"), userEmail)); // window.userId로 필터링
+            predicates.add(cb.equal(root.get("window").get("userId"), userEmail));
 
             if (done != null) {
                 predicates.add(cb.equal(root.get("done"), done));
@@ -123,7 +151,13 @@ public class TodoService {
             if (date != null && !date.isEmpty()) {
                 try {
                     LocalDate filterDate = LocalDate.parse(date);
-                    predicates.add(cb.equal(root.get("createdAt"), filterDate));
+                    // Instant에서 LocalDate를 추출하여 비교
+                    Expression<LocalDate> createdAtDate = cb.function(
+                        "DATE", // SQL DATE 함수
+                        LocalDate.class,
+                        root.get("createdAt")
+                    );
+                    predicates.add(cb.equal(createdAtDate, filterDate));
                 } catch (DateTimeParseException e) {
                     System.err.println("Invalid date format for global filter: " + date);
                 }
@@ -164,13 +198,9 @@ public class TodoService {
         todoItemRepository.delete(todoItem);
     }
 
-
-    // --- 중복 로직을 위한 private 헬퍼 메서드 ---
-
     private TodoItem findTodoItemForUser(String userEmail, Long winId, Long todoId) {
         TodoItem todoItem = todoItemRepository.findById(todoId)
                 .orElseThrow(() -> new IllegalArgumentException("TodoItem not found"));
-        // [보안] 요청한 사용자가 이 투두 항목에 대한 권한이 있는지 확인
         if (!todoItem.getWindow().getId().equals(winId) || !todoItem.getWindow().getUserId().equals(userEmail)) {
             throw new SecurityException("User does not have permission for this todo item");
         }
