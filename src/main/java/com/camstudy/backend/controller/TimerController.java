@@ -1,5 +1,7 @@
+// src/main/java/com/camstudy/backend/controller/TimerController.java
 package com.camstudy.backend.controller;
 
+import com.camstudy.backend.dto.TimerAnalyticsResponse; // Import the new DTO
 import com.camstudy.backend.dto.TimerGoalRequest;
 import com.camstudy.backend.dto.TimerGoalResponse;
 import com.camstudy.backend.dto.TodayTimeResponse;
@@ -16,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/timer") // 모든 경로에 /api 추가 (일관성을 위해)
+@RequestMapping("/timer")
 public class TimerController {
     private final TimerService timerService;
 
@@ -37,10 +39,8 @@ public class TimerController {
     }
 
     @GetMapping("/analytics")
-    public Map<String, Object> getAnalytics(@RequestParam int year, @RequestParam int month, @AuthenticationPrincipal String userEmail) {
-        // 이 부분의 로직은 복잡하므로 기존 로직을 유지하거나, 별도의 DTO로 분리할 수 있습니다.
-        // ... 기존 analytics 로직 ...
-        return new HashMap<>(); // 임시 반환
+    public TimerAnalyticsResponse getAnalytics(@RequestParam int year, @RequestParam int month, @AuthenticationPrincipal String userEmail) {
+        return timerService.getTimerAnalytics(userEmail, year, month);
     }
 
     // ▼▼▼ [추가된 API] ▼▼▼
@@ -60,10 +60,10 @@ public class TimerController {
         @AuthenticationPrincipal String userEmail) {
       return timerService.updateTimerGoal(userEmail, req.hour());
     }
-    
-    @DeleteMapping("/day/{date}") // 예: DELETE /timer/day/2025-06-23
+
+    @DeleteMapping("/day/{date}")
     public void resetDailyTimer(@PathVariable String date, @AuthenticationPrincipal String userEmail) {
-        LocalDate localDate = LocalDate.parse(date); // 경로 변수에서 날짜를 파싱합니다.
+        LocalDate localDate = LocalDate.parse(date);
         timerService.resetDailyTimer(userEmail, localDate);
     }
 
