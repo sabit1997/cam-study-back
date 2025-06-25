@@ -25,7 +25,7 @@ public class Window {
     @Enumerated(EnumType.STRING)
     private WindowType type;
 
-    private String url;
+    private String[] url;
 
     private int zIndex;
     private int x;
