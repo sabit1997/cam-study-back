@@ -1,3 +1,4 @@
+// src/main/java/com/camstudy/backend/controller/WindowController.java
 package com.camstudy.backend.controller;
 
 import com.camstudy.backend.dto.WindowPatchDto;
@@ -13,7 +14,6 @@ import java.util.List;
 public class WindowController {
 
     private final WindowService windowService;
-
     public WindowController(WindowService windowService) {
         this.windowService = windowService;
     }
@@ -23,9 +23,9 @@ public class WindowController {
         return windowService.findAllByUser(userEmail);
     }
 
-    // [핵심 수정] PostMapping에서 "/"를 제거하여 "/windows" 경로에 매핑되도록 합니다.
     @PostMapping
-    public Window create(@RequestBody Window window, @AuthenticationPrincipal String userEmail) {
+    public Window create(@RequestBody Window window,
+                         @AuthenticationPrincipal String userEmail) {
         return windowService.create(window, userEmail);
     }
 
@@ -37,12 +37,14 @@ public class WindowController {
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id, @AuthenticationPrincipal String userEmail) {
+    public void delete(@PathVariable Long id,
+                       @AuthenticationPrincipal String userEmail) {
         windowService.delete(id, userEmail);
     }
-    
+
     @PostMapping("/{id}/focus")
-    public List<Window> focus(@PathVariable Long id, @AuthenticationPrincipal String userEmail) {
+    public List<Window> focus(@PathVariable Long id,
+                              @AuthenticationPrincipal String userEmail) {
         return windowService.focusWindow(id, userEmail);
     }
 }

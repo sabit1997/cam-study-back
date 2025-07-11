@@ -1,7 +1,7 @@
 // src/main/java/com/camstudy/backend/controller/TimerController.java
 package com.camstudy.backend.controller;
 
-import com.camstudy.backend.dto.TimerAnalyticsResponse; // Import the new DTO
+import com.camstudy.backend.dto.TimerAnalyticsResponse;
 import com.camstudy.backend.dto.TimerGoalRequest;
 import com.camstudy.backend.dto.TimerGoalResponse;
 import com.camstudy.backend.dto.TodayTimeResponse;
@@ -10,44 +10,56 @@ import com.camstudy.backend.service.TimerService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.HashMap;
+import java.time.*;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/timer")
 public class TimerController {
     private final TimerService timerService;
-
     public TimerController(TimerService timerService) {
         this.timerService = timerService;
     }
 
     @PostMapping
-    public void recordTime(@RequestBody RecordRequest req, @AuthenticationPrincipal String userEmail) {
-        timerService.record(userEmail, Instant.parse(req.getStartAt()), Instant.parse(req.getEndAt()));
+    public void recordTime(@RequestBody RecordRequest req,
+                           @AuthenticationPrincipal String userEmail) {
+        timerService.record(userEmail,
+            Instant.parse(req.getStartAt()),
+            Instant.parse(req.getEndAt()));
     }
 
     @GetMapping
-    public TimerMonthlyResponse listByMonth(@RequestParam int year, @RequestParam int month, @AuthenticationPrincipal String userEmail) {
-        List<Timer> entries = timerService.listByMonth(userEmail, year, month);
-        long total = timerService.getMonthlyTotal(userEmail, year, month);
+    public TimerMonthlyResponse listByMonth(
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String timezone,
+            @AuthenticationPrincipal String userEmail) {
+
+        ZoneId userZone = ZoneId.of(timezone);
+        List<Timer> entries = timerService.listByMonth(userEmail, year, month, userZone);
+        long total = timerService.getMonthlyTotal(userEmail, year, month, userZone);
         return new TimerMonthlyResponse(entries, total);
     }
 
     @GetMapping("/analytics")
-    public TimerAnalyticsResponse getAnalytics(@RequestParam int year, @RequestParam int month, @AuthenticationPrincipal String userEmail) {
-        return timerService.getTimerAnalytics(userEmail, year, month);
+    public TimerAnalyticsResponse getAnalytics(
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String timezone,
+            @AuthenticationPrincipal String userEmail) {
+
+        ZoneId userZone = ZoneId.of(timezone);
+        return timerService.getTimerAnalytics(userEmail, year, month, userZone);
     }
 
-    // ▼▼▼ [추가된 API] ▼▼▼
-
     @GetMapping("/today")
-    public TodayTimeResponse getTodayTime(@AuthenticationPrincipal String userEmail) {
-        return timerService.getTodayTime(userEmail);
+    public TodayTimeResponse getTodayTime(
+            @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String timezone,
+            @AuthenticationPrincipal String userEmail) {
+
+        ZoneId userZone = ZoneId.of(timezone);
+        return timerService.getTodayTime(userEmail, userZone);
     }
 
     @GetMapping("/goal")
@@ -57,18 +69,22 @@ public class TimerController {
 
     @PostMapping("/goal")
     public TimerGoalResponse updateTimerGoal(@RequestBody TimerGoalRequest req,
-        @AuthenticationPrincipal String userEmail) {
-      return timerService.updateTimerGoal(userEmail, req.hour());
+                                              @AuthenticationPrincipal String userEmail) {
+        return timerService.updateTimerGoal(userEmail, req.hour());
     }
 
     @DeleteMapping("/day/{date}")
-    public void resetDailyTimer(@PathVariable String date, @AuthenticationPrincipal String userEmail) {
+    public void resetDailyTimer(
+            @PathVariable String date,
+            @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String timezone,
+            @AuthenticationPrincipal String userEmail) {
+
         LocalDate localDate = LocalDate.parse(date);
-        timerService.resetDailyTimer(userEmail, localDate);
+        ZoneId userZone = ZoneId.of(timezone);
+        timerService.resetDailyTimer(userEmail, localDate, userZone);
     }
 
-
-    // --- DTO 클래스들 (Controller 내부에 static class로 정의해도 됩니다) ---
+    // --- DTO 클래스들 ---
     static class RecordRequest {
         private String startAt;
         private String endAt;

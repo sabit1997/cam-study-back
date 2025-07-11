@@ -14,13 +14,20 @@ public class Timer {
     private Long id;
 
     private String userId;
+
+    /**
+     * 사용자 로컬 날짜만 저장
+     * (서비스 레이어에서 헤더로 받은 ZoneId 기준으로 날짜 계산)
+     */
     private LocalDate date;
+
     private long totalSeconds = 0;
 
     public void addDuration(long seconds) {
         this.totalSeconds += seconds;
     }
 
+    // === Getter / Setter ===
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
