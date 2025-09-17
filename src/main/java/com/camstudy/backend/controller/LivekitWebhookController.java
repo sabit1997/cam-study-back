@@ -13,7 +13,7 @@ import java.util.Map;
  * TODO(보안): 서명 검증(예: Authorization 헤더의 서명 토큰), 허용 IP 화이트리스트 등
  */
 @RestController
-@RequestMapping("/api/livekit/webhook")
+@RequestMapping("/livekit/webhook")
 @RequiredArgsConstructor
 public class LivekitWebhookController {
 

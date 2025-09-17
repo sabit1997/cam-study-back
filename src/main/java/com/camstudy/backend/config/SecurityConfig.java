@@ -35,7 +35,7 @@ public class SecurityConfig {
                     "/auth/**",
                     "/error",
                     "/ws/**",                 // STOMP 핸드셰이크
-                    "/api/livekit/webhook",  // LiveKit 웹훅 수신
+                    "/livekit/webhook",  // LiveKit 웹훅 수신
                     "/actuator/**"           // 헬스/인포 (필요 시)
                 ).permitAll()
                 .anyRequest().authenticated()
