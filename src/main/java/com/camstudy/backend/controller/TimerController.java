@@ -23,10 +23,13 @@ public class TimerController {
 
     @PostMapping
     public void recordTime(@RequestBody RecordRequest req,
-                           @AuthenticationPrincipal String userEmail) {
+                          @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String tz,
+                          @AuthenticationPrincipal String userEmail) {
+        ZoneId userZone = ZoneId.of(tz);
         timerService.record(userEmail,
             Instant.parse(req.getStartAt()),
-            Instant.parse(req.getEndAt()));
+            Instant.parse(req.getEndAt()),
+            userZone);
     }
 
     @GetMapping

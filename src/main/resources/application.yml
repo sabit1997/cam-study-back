@@ -26,3 +26,8 @@ logging:
 
 jwt:
   secretKey: ${JWT_SECRET}
+
+livekit:
+  url: ${LIVEKIT_URL}
+  apiKey: ${LIVEKIT_API_KEY}
+  apiSecret: ${LIVEKIT_API_SECRET}

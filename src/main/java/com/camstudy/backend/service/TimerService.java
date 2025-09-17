@@ -1,4 +1,3 @@
-// src/main/java/com/camstudy/backend/service/TimerService.java
 package com.camstudy.backend.service;
 
 import com.camstudy.backend.dto.TodayTimeResponse;
@@ -23,51 +22,64 @@ public class TimerService {
     private final TimerRepository repo;
     private final UserRepository userRepository;
 
+    /**
+     * 사용자 로컬 타임존(userZone)을 기준으로 시간 분할하여 기록합니다.
+     */
     @Transactional
-    public void record(String userId, Instant startAt, Instant endAt) {
-        // 기록 로직: 기록 시점에 태국 기준이 아닌, UTC 저장만 합니다.
-        // 화면에 자정 분리 등은 조회 로직에서 처리하므로, record는 기존 대로 두셔도 무방합니다.
-        ZoneId utc = ZoneOffset.UTC;
-        ZonedDateTime zStartUtc = startAt.atZone(utc);
-        ZonedDateTime zEndUtc   = endAt.atZone(utc);
+    public void record(String userId,
+                       Instant startAt,
+                       Instant endAt,
+                       ZoneId userZone) {
 
-        LocalDate currentDate = zStartUtc.toLocalDate();
-        ZonedDateTime sliceStart = zStartUtc;
+        // Instant → 사용자 로컬 ZonedDateTime
+        ZonedDateTime zStart = startAt.atZone(userZone);
+        ZonedDateTime zEnd   = endAt.atZone(userZone);
 
-        while (!sliceStart.isAfter(zEndUtc)) {
-            ZonedDateTime sliceEnd = sliceStart.toLocalDate()
-                                               .atTime(LocalTime.MAX)
-                                               .atZone(utc);
-            if (sliceEnd.isAfter(zEndUtc)) sliceEnd = zEndUtc;
+        ZonedDateTime sliceStart = zStart;
 
-            long secs = Duration.between(sliceStart, sliceEnd).getSeconds();
-            LocalDate finalDate = sliceStart.toLocalDate();
-            Timer entry = repo.findByUserIdAndDate(userId, finalDate)
+        // sliceStart가 zEnd 이전일 때만 반복
+        while (sliceStart.isBefore(zEnd)) {
+            // sliceEnd: 해당 날짜의 자정까지 (userZone 기준)
+            ZonedDateTime sliceEnd = sliceStart
+                    .toLocalDate()
+                    .atTime(LocalTime.MAX)
+                    .atZone(userZone);
+            if (sliceEnd.isAfter(zEnd)) {
+                sliceEnd = zEnd;
+            }
+
+            // Duration 전체 받아서 초 단위만 사용 (나노초 버림)
+            Duration d = Duration.between(sliceStart, sliceEnd);
+            long secs = d.getSeconds();
+
+            // 로컬 날짜 키
+            LocalDate date = sliceStart.toLocalDate();
+            Timer entry = repo.findByUserIdAndDate(userId, date)
                     .orElseGet(() -> {
                         Timer t = new Timer();
                         t.setUserId(userId);
-                        t.setDate(finalDate);
+                        t.setDate(date);
+                        t.setTotalSeconds(0L);
                         return t;
                     });
 
             entry.setTotalSeconds(entry.getTotalSeconds() + secs);
             repo.save(entry);
 
-            sliceStart = sliceEnd.plusNanos(1);
+            // 다음 조각 시작은 이전 끝으로 설정
+            sliceStart = sliceEnd;
         }
     }
 
     public List<Timer> listByMonth(String userId, int year, int month, ZoneId userZone) {
-        // 조회 범위를 사용자 로컬 기준으로 계산
         LocalDate fromLocal = LocalDate.of(year, month, 1);
         LocalDate toLocal   = fromLocal.withDayOfMonth(fromLocal.lengthOfMonth());
-        // DB 질의는 LocalDate 기준으로 TIMESTAMP WITH TIME ZONE 매핑된 컬럼을 비교합니다.
         return repo.findByUserIdAndDateBetween(userId, fromLocal, toLocal);
     }
 
     public long getMonthlyTotal(String userId, int year, int month, ZoneId userZone) {
         return listByMonth(userId, year, month, userZone)
-            .stream().mapToLong(Timer::getTotalSeconds).sum();
+                .stream().mapToLong(Timer::getTotalSeconds).sum();
     }
 
     public TimerAnalyticsResponse getTimerAnalytics(
@@ -83,24 +95,19 @@ public class TimerService {
         long dailyGoalSec = user.getDailyGoalHours() * 3600L;
 
         double achievementRateToday = repo.findByUserIdAndDate(userEmail, todayLocal)
-            .map(e -> Math.min(100.0, (e.getTotalSeconds() * 100.0) / dailyGoalSec))
-            .orElse(0.0);
+                .map(e -> Math.min(100.0, (e.getTotalSeconds() * 100.0) / dailyGoalSec))
+                .orElse(0.0);
 
-        // 월간 비교
         long currentTotal  = getMonthlyTotal(userEmail, year, month, userZone);
         LocalDate prevMonthStart = LocalDate.of(year, month, 1).minusMonths(1);
         long previousTotal = getMonthlyTotal(userEmail, prevMonthStart.getYear(), prevMonthStart.getMonthValue(), userZone);
         long diff = currentTotal - previousTotal;
         Double changeRate = previousTotal == 0 ? null : diff * 100.0 / previousTotal;
 
-        // 요일별 통계
         Map<DayOfWeek, Long> weekdayStats = new EnumMap<>(DayOfWeek.class);
         listByMonth(userEmail, year, month, userZone)
-            .forEach(e -> {
-                DayOfWeek d = e.getDate().getDayOfWeek();
-                weekdayStats.merge(d, e.getTotalSeconds(), Long::sum);
-            });
-        // best focus day
+            .forEach(e -> weekdayStats.merge(e.getDate().getDayOfWeek(), e.getTotalSeconds(), Long::sum));
+
         Optional<Timer> best = listByMonth(userEmail, year, month, userZone)
             .stream().max(Comparator.comparingLong(Timer::getTotalSeconds));
 
@@ -164,8 +171,6 @@ public class TimerService {
 
     @Transactional
     public void resetDailyTimer(String userEmail, LocalDate date, ZoneId userZone) {
-        // 사용자 로컬 자정 기준 Instant 범위는 조회 단계가 아닌, Timer 자체가 LocalDate key이므로
-        // 단순히 date(LocalDate)만 초기화하면 됩니다.
         repo.findByUserIdAndDate(userEmail, date)
             .ifPresent(timer -> {
                 timer.setTotalSeconds(0);

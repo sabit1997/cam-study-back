@@ -16,7 +16,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
-    // [추가] 새로 만든 필터를 주입받습니다.
+    // 커스텀 인증 체크 필터
     private final AuthenticationCheckFilter authenticationCheckFilter;
 
     public SecurityConfig(JwtFilter jwtFilter, AuthenticationCheckFilter authenticationCheckFilter) {
@@ -30,16 +30,19 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**", "/error").permitAll()
+                // ⬇️ permitAll 경로들 추가
+                .requestMatchers(
+                    "/auth/**",
+                    "/error",
+                    "/ws/**",                 // STOMP 핸드셰이크
+                    "/api/livekit/webhook",  // LiveKit 웹훅 수신
+                    "/actuator/**"           // 헬스/인포 (필요 시)
+                ).permitAll()
                 .anyRequest().authenticated()
             )
-            // [수정] 이전에 추가했던 exceptionHandling은 이제 필요 없습니다.
-            // .exceptionHandling(...) 부분 제거
-
-            // JwtFilter가 먼저 실행되어 토큰이 있으면 인증 정보를 설정하고,
+            // JwtFilter가 먼저 실행되어 토큰이 있으면 인증 정보를 설정
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-            // [추가] 바로 뒤에 우리가 만든 인증 체크 필터를 실행합니다.
-            // 이 필터가 인증 정보가 없으면 무조건 401을 반환하고 요청을 끝내버립니다.
+            // 그 다음 커스텀 인증 체크 필터
             .addFilterAfter(authenticationCheckFilter, JwtFilter.class);
 
         return http.build();
@@ -55,7 +58,6 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }
