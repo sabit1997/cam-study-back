@@ -2,6 +2,7 @@
 package com.camstudy.backend.controller;
 
 import com.camstudy.backend.dto.LoginRequest;
+import com.camstudy.backend.dto.LoginResponse;
 import com.camstudy.backend.dto.SignupRequest;
 import com.camstudy.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,7 +18,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+    public LoginResponse login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         return authService.login(loginRequest.getEmail(), loginRequest.getPassword(), response);
     }
 

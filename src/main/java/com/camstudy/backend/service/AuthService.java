@@ -1,5 +1,6 @@
 package com.camstudy.backend.service;
 
+import com.camstudy.backend.dto.LoginResponse;
 import com.camstudy.backend.entity.User;
 import com.camstudy.backend.repository.UserRepository;
 import com.camstudy.backend.util.JwtUtil;
@@ -20,7 +21,7 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
     }
 
-    public String login(String email, String password, HttpServletResponse response) {
+    public LoginResponse login(String email, String password, HttpServletResponse response) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 사용자"));
 
@@ -54,8 +55,8 @@ public class AuthService {
         response.addHeader("Set-Cookie", accessTokenCookie.toString());
         response.addHeader("Set-Cookie", refreshTokenCookie.toString());
 
-        // 유저 정보 반환 (유저네임만 반환)
-        return user.getUsername(); // 유저의 이름 반환
+        // 유저 정보 반환
+        return new LoginResponse(user.getId(), user.getUsername());
     }
 
     public String signup(String email, String password, String username) {
