@@ -5,9 +5,18 @@ import com.camstudy.backend.dto.room.JoinReq;
 import com.camstudy.backend.dto.room.JoinRes;
 import com.camstudy.backend.dto.room.RoomDto;
 import com.camstudy.backend.entity.Role;
+import com.camstudy.backend.entity.Room;
 import com.camstudy.backend.service.LivekitService;
 import com.camstudy.backend.service.RoomService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,14 +36,21 @@ public class RoomController {
 
     /** 방 목록 (각 방의 현재 활성 인원 수 포함) */
     @GetMapping
-    public java.util.List<RoomDto> list() {
-        var rooms = roomService.list();
-        var ids = rooms.stream().map(r -> r.getId()).toList();
-        var counts = roomService.activeCounts(ids); // roomId -> activeCount
+    public Page<RoomDto> list(
+      @PageableDefault(size = 9, sort= "id", direction = Sort.Direction.DESC)
+      Pageable pageable
+    ) {
+        Page<Room> roomPage = roomService.list(pageable);
 
-        return rooms.stream()
-                .map(r -> RoomDto.from(r, counts.getOrDefault(r.getId(), 0L)))
-                .toList();
+        List<String> ids = roomPage.getContent().stream()
+                                    .map(r -> r.getId())
+                                    .toList();
+        
+        Map<String, Long> counts = roomService.activeCounts(ids); 
+
+        return roomPage.map(room -> 
+            RoomDto.from(room, counts.getOrDefault(room.getId(), 0L))
+        );
     }
 
     /** 방 상세 (현재 활성 인원 수 포함) */

@@ -6,6 +6,9 @@ import com.camstudy.backend.entity.Room;
 import com.camstudy.backend.repository.MemberRepository;
 import com.camstudy.backend.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,9 +40,9 @@ public class RoomService {
         return roomRepo.findById(roomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "room not found"));
     }
-
-    public java.util.List<Room> list() {
-        return roomRepo.findAll();
+    
+    public Page<Room> list(Pageable pageable) {
+      return roomRepo.findAll(pageable);
     }
 
     public void verifyPassword(Room room, String rawPassword) {
