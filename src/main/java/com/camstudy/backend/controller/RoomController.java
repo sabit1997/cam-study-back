@@ -6,7 +6,6 @@ import com.camstudy.backend.dto.room.JoinRes;
 import com.camstudy.backend.dto.room.RoomDto;
 import com.camstudy.backend.entity.Role;
 import com.camstudy.backend.entity.Room;
-import com.camstudy.backend.service.LivekitService;
 import com.camstudy.backend.service.RoomService;
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 public class RoomController {
 
     private final RoomService roomService;
-    private final LivekitService livekit;
 
     /** 방 생성 (응답에 memberCount=0 포함) */
     @PostMapping
@@ -61,7 +59,7 @@ public class RoomController {
         return RoomDto.from(room, active);
     }
 
-    /** 방 입장 + LiveKit 토큰 발급 */
+    /** 방 입장 */
     @PostMapping("/{roomId}/join")
     public JoinRes join(@PathVariable String roomId, @RequestBody JoinReq req) {
         var room = roomService.getOrThrow(roomId);
@@ -69,9 +67,8 @@ public class RoomController {
         roomService.ensureCapacity(room);
         var member = roomService.upsertActiveMember(room, req.userId());
 
-        String token = livekit.issueJoinToken(roomId, req.userId(), true);
         String role = (member.getRole() == Role.HOST) ? "HOST" : "MEMBER";
-        return new JoinRes(token, role);
+        return new JoinRes(role);
     }
 
     /** 나가기(활성 off) */
