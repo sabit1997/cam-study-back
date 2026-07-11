@@ -23,6 +23,9 @@ public class Timer {
 
     private long totalSeconds = 0;
 
+    @Column(nullable = false, columnDefinition = "int default 0")
+    private int pomoCycles = 0;
+
     public void addDuration(long seconds) {
         this.totalSeconds += seconds;
     }
@@ -39,4 +42,7 @@ public class Timer {
 
     public long getTotalSeconds() { return totalSeconds; }
     public void setTotalSeconds(long totalSeconds) { this.totalSeconds = totalSeconds; }
+
+    public int getPomoCycles() { return pomoCycles; }
+    public void setPomoCycles(int pomoCycles) { this.pomoCycles = pomoCycles; }
 }

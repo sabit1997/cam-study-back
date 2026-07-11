@@ -151,7 +151,8 @@ public class TimerService {
             t.getUserId(),
             t.getDate().toString(),
             t.getTotalSeconds(),
-            user.getDailyGoalHours()
+            user.getDailyGoalHours(),
+            t.getPomoCycles()
         );
     }
 
@@ -170,10 +171,25 @@ public class TimerService {
     }
 
     @Transactional
+    public void updatePomoCycles(String userEmail, LocalDate date, int cycles) {
+        Timer entry = repo.findByUserIdAndDate(userEmail, date)
+            .orElseGet(() -> {
+                Timer t = new Timer();
+                t.setUserId(userEmail);
+                t.setDate(date);
+                t.setTotalSeconds(0L);
+                return t;
+            });
+        entry.setPomoCycles(cycles);
+        repo.save(entry);
+    }
+
+    @Transactional
     public void resetDailyTimer(String userEmail, LocalDate date, ZoneId userZone) {
         repo.findByUserIdAndDate(userEmail, date)
             .ifPresent(timer -> {
                 timer.setTotalSeconds(0);
+                timer.setPomoCycles(0);
                 repo.save(timer);
             });
     }

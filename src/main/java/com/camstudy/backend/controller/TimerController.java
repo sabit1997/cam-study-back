@@ -76,6 +76,16 @@ public class TimerController {
         return timerService.updateTimerGoal(userEmail, req.hour());
     }
 
+    @PatchMapping("/today/cycles")
+    public void updatePomoCycles(
+            @RequestBody CyclesRequest req,
+            @RequestHeader(value = "X-User-Timezone", defaultValue = "UTC") String tz,
+            @AuthenticationPrincipal String userEmail) {
+        ZoneId userZone = ZoneId.of(tz);
+        LocalDate today = LocalDate.now(userZone);
+        timerService.updatePomoCycles(userEmail, today, req.cycles());
+    }
+
     @DeleteMapping("/day/{date}")
     public void resetDailyTimer(
             @PathVariable String date,
@@ -88,6 +98,8 @@ public class TimerController {
     }
 
     // --- DTO 클래스들 ---
+    record CyclesRequest(int cycles) {}
+
     static class RecordRequest {
         private String startAt;
         private String endAt;
