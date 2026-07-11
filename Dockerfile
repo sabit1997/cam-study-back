@@ -1,5 +1,5 @@
 # Use OpenJDK 17 slim image as base for the build stage
-FROM openjdk:17-jdk-slim AS build
+FROM eclipse-temurin:17-jdk-jammy AS build
 
 # Set the working directory in the container
 WORKDIR /app
@@ -11,7 +11,7 @@ ARG JAR_FILE=build/libs/*.jar
 COPY ${JAR_FILE} app.jar
 
 # Create a new stage for the runtime environment
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-jammy
 
 # Set the working directory in the container
 WORKDIR /app
