@@ -27,6 +27,8 @@ public class Window {
 
     private String[] url;
 
+    private String[] urlTitles;
+
     private int zIndex;
     private int x;
     private int y;
