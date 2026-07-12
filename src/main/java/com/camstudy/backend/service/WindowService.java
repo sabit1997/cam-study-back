@@ -50,6 +50,7 @@ public class WindowService {
         if (dto.getZIndex() != null) window.setZIndex(dto.getZIndex());
         if (dto.getType() != null) window.setType(dto.getType());
         if (dto.getUrl() != null) window.setUrl(dto.getUrl());
+        if (dto.getUrlTitles() != null) window.setUrlTitles(dto.getUrlTitles());
 
         return windowRepository.save(window);
     }
