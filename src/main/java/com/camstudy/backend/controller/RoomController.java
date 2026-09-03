@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,10 +26,11 @@ public class RoomController {
 
     private final RoomService roomService;
 
-    /** 방 생성 (응답에 memberCount=0 포함) */
+    /** 방 생성 (응답에 memberCount=0 포함). 소유자는 요청자로 고정된다 */
     @PostMapping
-    public RoomDto create(@RequestBody CreateRoomReq req) {
-        var room = roomService.create(req.name(), req.capacity(), req.password(), req.ownerId());
+    public RoomDto create(@RequestBody CreateRoomReq req,
+                          @AuthenticationPrincipal String userId) {
+        var room = roomService.create(req.name(), req.capacity(), req.password(), userId);
         return RoomDto.from(room, 0L);
     }
 
@@ -43,10 +45,10 @@ public class RoomController {
         List<String> ids = roomPage.getContent().stream()
                                     .map(r -> r.getId())
                                     .toList();
-        
-        Map<String, Long> counts = roomService.activeCounts(ids); 
 
-        return roomPage.map(room -> 
+        Map<String, Long> counts = roomService.activeCounts(ids);
+
+        return roomPage.map(room ->
             RoomDto.from(room, counts.getOrDefault(room.getId(), 0L))
         );
     }
@@ -59,23 +61,21 @@ public class RoomController {
         return RoomDto.from(room, active);
     }
 
-    /** 방 입장 */
+    /** 방 입장. 입장자는 인증 주체로 결정된다 */
     @PostMapping("/{roomId}/join")
-    public JoinRes join(@PathVariable String roomId, @RequestBody JoinReq req) {
-        var room = roomService.getOrThrow(roomId);
-        roomService.verifyPassword(room, req.password());
-        roomService.ensureCapacity(room);
-        var member = roomService.upsertActiveMember(room, req.userId());
+    public JoinRes join(@PathVariable String roomId,
+                        @RequestBody JoinReq req,
+                        @AuthenticationPrincipal String userId) {
+        var member = roomService.join(roomId, userId, req.password());
 
         String role = (member.getRole() == Role.HOST) ? "HOST" : "MEMBER";
         return new JoinRes(role);
     }
 
-    /** 나가기(활성 off) */
-    public record LeaveReq(String userId) {}
+    /** 나가기(활성 off). 본인만 나갈 수 있다 */
     @PostMapping("/{roomId}/leave")
-    public void leave(@PathVariable String roomId, @RequestBody LeaveReq req) {
-        var room = roomService.getOrThrow(roomId);
-        roomService.deactivateMemberIfExists(room, req.userId());
+    public void leave(@PathVariable String roomId,
+                      @AuthenticationPrincipal String userId) {
+        roomService.leave(roomId, userId);
     }
 }
