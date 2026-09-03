@@ -30,13 +30,14 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // ⬇️ permitAll 경로들 추가
                 .requestMatchers(
                     "/auth/**",
                     "/error",
-                    "/ws/**",
-                    "/actuator/**"
+                    "/ws/**"
                 ).permitAll()
+                // 와일드카드(/actuator/**)로 열어두면 나중에 노출 대상이 늘어날 때
+                // /actuator/env 로 JWT_SECRET 이 함께 공개된다. 헬스체크만 허용한다.
+                .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
             // JwtFilter가 먼저 실행되어 토큰이 있으면 인증 정보를 설정

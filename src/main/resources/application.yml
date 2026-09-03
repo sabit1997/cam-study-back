@@ -20,6 +20,17 @@ server:
   address: 0.0.0.0
   port: 8080
 
+# 노출 대상을 명시해 둔다. 기본값에 의존하면 누군가 "*" 로 바꿨을 때
+# /actuator/env, /actuator/heapdump 로 DB 비밀번호와 JWT 시크릿이 새어나간다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
 logging:
   level:
     org.springframework.security: WARN
