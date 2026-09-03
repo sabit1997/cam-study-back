@@ -37,3 +37,14 @@ logging:
 jwt:
   secretKey: ${JWT_SECRET}
 
+app:
+  cors:
+    # HTTP CORS 와 WebSocket 핸드셰이크가 같이 읽는다.
+    # TODO: profile 분리 후 localhost 는 application-local.yml 로 옮길 것.
+    #       지금 빼면 로컬 개발이 즉시 깨진다.
+    allowed-origins:
+      - https://oeyo-cam.site
+      - https://www.oeyo-cam.site
+      - http://localhost:3000
+      - http://localhost:3001
+

@@ -23,10 +23,14 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final ObjectMapper objectMapper;
+    private final CorsProperties corsProperties;
 
-    public SecurityConfig(JwtFilter jwtFilter, ObjectMapper objectMapper) {
+    public SecurityConfig(JwtFilter jwtFilter,
+                          ObjectMapper objectMapper,
+                          CorsProperties corsProperties) {
         this.jwtFilter = jwtFilter;
         this.objectMapper = objectMapper;
+        this.corsProperties = corsProperties;
     }
 
     @Bean
@@ -74,13 +78,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of(
-            "https://oeyo-cam.site",
-            "https://www.oeyo-cam.site",
-            "http://localhost:3000",
-            "http://localhost:3001"
-        ));
+        // setAllowedOriginPatterns 는 와일드카드를 위한 API 다. 정확한 출처만 쓸 때는
+        // setAllowedOrigins 가 낫다. credentials 와 함께 "*" 를 넣으면 예외가 나므로
+        // 실수로 전면 개방하는 것을 막아준다.
+        config.setAllowedOrigins(corsProperties.allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // TODO: 프런트가 실제로 보내는 헤더를 확인한 뒤 Content-Type,
+        //       X-User-Timezone 정도로 좁힐 것. 지금 좁히면 preflight 가 깨질 수 있다.
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
