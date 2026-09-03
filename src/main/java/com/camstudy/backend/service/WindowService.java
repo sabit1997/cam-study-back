@@ -1,11 +1,13 @@
 // src/main/java/com/camstudy/backend/service/WindowService.java
 package com.camstudy.backend.service;
 
+import com.camstudy.backend.dto.WindowCreateRequest;
 import com.camstudy.backend.dto.WindowPatchDto;
 import com.camstudy.backend.entity.Window;
 import com.camstudy.backend.repository.WindowRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects; // Objects.requireNonNull을 위해 추가
 
@@ -25,11 +27,32 @@ public class WindowService {
         return windowRepository.findByUserId(userEmail); // UserRepository와 유사하게 userId로 조회하는 메서드 필요
     }
 
-    // create 메서드 수정: Window 생성 시 userEmail을 함께 받아 userId 설정
-    public Window create(Window window, String userEmail) {
-        // 엔티티에 userId를 설정해야 해당 사용자의 윈도우로 저장됩니다.
-        window.setUserId(userEmail); // Window 엔티티에 setUserId 메서드가 있어야 합니다.
+    /**
+     * 창 생성.
+     *
+     * 요청 DTO에서 서버가 직접 엔티티를 조립한다. id를 항상 null로 두므로
+     * save()가 반드시 persist(INSERT) 경로를 타고, merge로 남의 행을 덮어쓸 수 없다.
+     * 소유자는 인증 주체로 고정한다.
+     */
+    public Window create(WindowCreateRequest req, String userEmail) {
+        Window window = Window.builder()
+                .userId(userEmail)
+                .type(req.type())
+                .url(req.url())
+                .urlTitles(req.urlTitles())
+                .x(orZero(req.x()))
+                .y(orZero(req.y()))
+                .width(orZero(req.width()))
+                .height(orZero(req.height()))
+                .zIndex(orZero(req.zIndex()))
+                // @Builder는 필드 초기화식을 무시하므로 명시적으로 넣어준다
+                .todos(new ArrayList<>())
+                .build();
         return windowRepository.save(window);
+    }
+
+    private static int orZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     // partialUpdate 메서드 수정: 해당 사용자의 윈도우만 수정 가능하도록 검증

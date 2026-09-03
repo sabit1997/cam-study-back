@@ -1,6 +1,7 @@
 // src/main/java/com/camstudy/backend/controller/WindowController.java
 package com.camstudy.backend.controller;
 
+import com.camstudy.backend.dto.WindowCreateRequest;
 import com.camstudy.backend.dto.WindowPatchDto;
 import com.camstudy.backend.entity.Window;
 import com.camstudy.backend.service.WindowService;
@@ -24,9 +25,9 @@ public class WindowController {
     }
 
     @PostMapping
-    public Window create(@RequestBody Window window,
+    public Window create(@RequestBody WindowCreateRequest req,
                          @AuthenticationPrincipal String userEmail) {
-        return windowService.create(window, userEmail);
+        return windowService.create(req, userEmail);
     }
 
     @PatchMapping("/{id}")
