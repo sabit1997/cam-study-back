@@ -1,3 +1,12 @@
+### secrets / local config ###
+# 커밋 금지. .env.example만 커밋한다
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+src/main/resources/application-local.yml
+
 HELP.md
 .gradle
 build/
