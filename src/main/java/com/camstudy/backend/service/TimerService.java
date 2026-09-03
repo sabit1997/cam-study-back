@@ -22,6 +22,9 @@ public class TimerService {
     private final TimerRepository repo;
     private final UserRepository userRepository;
 
+    /** 한 번의 기록 요청이 커버할 수 있는 최대 구간. 루프 횟수의 상한 역할도 한다 */
+    private static final Duration MAX_RECORD_SPAN = Duration.ofDays(7);
+
     /**
      * 사용자 로컬 타임존(userZone)을 기준으로 시간 분할하여 기록합니다.
      */
@@ -31,6 +34,17 @@ public class TimerService {
                        Instant endAt,
                        ZoneId userZone) {
 
+        if (startAt == null || endAt == null) {
+            throw new IllegalArgumentException("startAt and endAt are required");
+        }
+        if (!startAt.isBefore(endAt)) {
+            throw new IllegalArgumentException("startAt must be before endAt");
+        }
+        if (Duration.between(startAt, endAt).compareTo(MAX_RECORD_SPAN) > 0) {
+            throw new IllegalArgumentException(
+                    "recording span exceeds " + MAX_RECORD_SPAN.toDays() + " days");
+        }
+
         // Instant → 사용자 로컬 ZonedDateTime
         ZonedDateTime zStart = startAt.atZone(userZone);
         ZonedDateTime zEnd   = endAt.atZone(userZone);
@@ -39,11 +53,14 @@ public class TimerService {
 
         // sliceStart가 zEnd 이전일 때만 반복
         while (sliceStart.isBefore(zEnd)) {
-            // sliceEnd: 해당 날짜의 자정까지 (userZone 기준)
+            // 이 날짜 조각의 끝 = "다음 날 자정"(배타적).
+            // 그 날의 마지막 순간(LocalTime.MAX)으로 잡으면 다음 반복에서
+            // toLocalDate()가 여전히 같은 날을 반환해 sliceStart가 전진하지 않는다.
+            // 반열린 구간 [00:00, 다음날 00:00) 이라 자정 1초가 이중 계산되지도 않는다.
             ZonedDateTime sliceEnd = sliceStart
                     .toLocalDate()
-                    .atTime(LocalTime.MAX)
-                    .atZone(userZone);
+                    .plusDays(1)
+                    .atStartOfDay(userZone);
             if (sliceEnd.isAfter(zEnd)) {
                 sliceEnd = zEnd;
             }
